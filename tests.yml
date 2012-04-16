@@ -1,0 +1,6 @@
+--- 
+- :name: ping
+  :command: ping -c5 $target
+
+- :name: tcp timestamps
+  :command: hping3 -S -c 3 -p $port_open $target --tcp-timestamp
