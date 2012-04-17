@@ -1,6 +1,14 @@
 --- 
 - :name: ping
-  :command: ping -c5 $target
+  :command: ping -c$repeat $target
+  :checks:
+  - :name: ICMP echo requests should be filtered
+    :test: .*100% packet loss.*
+    :match_passes: true
 
 - :name: tcp timestamps
-  :command: hping3 -S -c 3 -p $port_open $target --tcp-timestamp
+  :command: sudo hping3 -S -c $repeat -p $port_open $target --tcp-timestamp
+  :checks:
+  - :name: TCP Timestamps should be disabled
+    :test: .*uptime seems.*
+    :match_passes: false
