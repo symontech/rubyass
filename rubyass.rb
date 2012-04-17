@@ -4,6 +4,31 @@ require 'yaml'
 require 'term/ansicolor'
 include Term::ANSIColor
 
+class Logger
+  def initialize(target)
+    @file_prefix = "logs/#{target}"
+  end
+
+  def log(message, date=true)
+    File.open("#{@file_prefix}.log", 'a') do |f|
+      if date
+        f.puts("#{Time.now}\t#{message}")
+      else
+        f.puts(message)
+      end
+    end
+  end
+
+  def result(message, newline=true)
+    File.open("#{@file_prefix}.result", 'a') do |f|
+      f.print(message)
+      f.print("\n") if newline
+    end
+  end
+  
+end
+
+
 def hr
   print blue
   80.times { print '-' }
@@ -24,6 +49,10 @@ def replace_vars(cmd, config)
   cmd.gsub!(/\$repeat/, 	config[:repeat].to_s)
   return cmd
 end
+
+
+
+
 
 options = {
   :first       => "default value",
@@ -60,7 +89,7 @@ end
 
 # target is required
 unless ARGV.last
-  error "no target"
+  error "please specify a target"
   exit 1 
 end
 
@@ -82,8 +111,20 @@ config = {
 # test config
 config[:open_ports][:tcp] << 80 
 
+# init logger
+logger = Logger.new(config[:target])
+
 # display target
 puts bold, "Target: #{config[:target]}", reset
+
+logger.log("Target: #{config[:target]}")
+logger.result("Tests on #{config[:target]} started #{Time.now}\n")
+
+
+# stats
+count_checks_succ = 0
+count_checks_fail = 0
+
 
 # start the tests
 tests.each do |test|
@@ -91,6 +132,9 @@ tests.each do |test|
   print yellow, "#{test[:name]}"
   cmd = replace_vars(test[:command], config)
   puts green, "  #{cmd}", reset
+
+  logger.log("", false)
+  logger.log(cmd)
 
   # run command and capture output
   output = "" 
@@ -100,7 +144,9 @@ tests.each do |test|
     end
   end
 
+
   #puts output
+  logger.log(output, false)
 
   # run checks on output
   if test[:checks]
@@ -110,8 +156,16 @@ tests.each do |test|
       print bold, check[:name], reset
       forward = 80 - check[:name].length
       forward = 1 if forward < 1
-      forward.times { print " " }
+      spaces = ""
+      forward.times { spaces += " " }
+      print spaces
       print "["
+
+      logger.result(check[:name], false)
+      logger.result(spaces, false)
+      logger.result("[", false)
+
+
 
       # eval
       matches = output.match(Regexp.new(check[:test]))
@@ -119,11 +173,20 @@ tests.each do |test|
       passed = !passed unless check[:match_passes]
       if passed
         print green, "OK"
+        logger.result("OK", false)
+	count_checks_succ += 1
       else
-        print red, "FAILED"
+        print yellow, "FAILED"
+        logger.result("FAILED", false)
+        count_checks_fail += 1
       end
       print reset, "]\n"
-      print matches
+      logger.result("]")
+      
+      if matches
+        print matches
+        logger.result(matches);
+      end 
 
     end
   end
@@ -131,5 +194,17 @@ tests.each do |test|
   # seperator
   puts; hr;
 end
+
+
+logger.result("\nTests completed #{Time.now}")
+
+
+# summary
+puts
+print green, "  #{count_checks_succ} passed / "
+print yellow, " #{count_checks_fail} failed", reset
+puts
+hr
+puts
 
 exit 0
