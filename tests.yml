@@ -2,20 +2,30 @@
 - :name: ICMP Echo
   :command: ping -c$repeat $target
   :checks:
-  - :name: ICMP echo requests should be filtered
-    :test: .*100% packet loss.*
-    :match_passes: true
+  - :name: System should not answer to ICMP echo requests (ping)
+    :test: .*bytes from.*
+    :match_passes: false
 
-- :name: nmap syn scan agressive, verbose, default ports
-  :command: sudo nmap -sS -A -v $target
+- :name: ICMP Timestamps
+  :command: sudo hping3 -c $repeat --icmp-ts $target
+  :checks:
+  - :name: System should not answer to ICMP timestamp requests
+    :test: .*ICMP timestamp.*
+    :match_passes: false
+
+- :name: nmap syn scan agressive and verbose on default ports
+  :command: sudo nmap -sS -A -v -P0 $target
   :port_source: true
   :checks:
-  - :name: IP IDs should all be zeros
-    :test: IP ID Sequence Generation.*All zeros
-    :match_passes: true
+  - :name: IP IDs should not be incremental
+    :test: IP ID Sequence Generation.*incremental
+    :match_passes: false
   - :name: TCP Sequences should not be predictable
     :test: TCP Sequence Prediction.*Difficulty=.*Good luck.*
     :match_passes: true
+  - :name: SSLv2 should not be supported
+    :test: server still supports SSLv2
+    :match_passes: false
 
 - :name: TCP Timestamps
   :command: sudo hping3 -S -c $repeat -p $port_open $target --tcp-timestamp
@@ -23,3 +33,8 @@
   - :name: TCP Timestamps should be disabled
     :test: .*uptime seems.*
     :match_passes: false
+
+- :name: nmap udp scan agressive and verbose on default ports
+  :command: sudo nmap -sU -A -v -P0 $target
+  :port_source: true
+

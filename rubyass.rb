@@ -45,20 +45,31 @@ end
 
 def replace_vars(cmd, config)
   cmd.gsub!(/\$target/, 	config[:target])
-  cmd.gsub!(/\$port_open/, 	config[:open_ports][:tcp].first.to_s)
+  if config[:open_ports][:tcp].first
+    cmd.gsub!(/\$port_open/, 	config[:open_ports][:tcp].first[:port].to_s)
+  end
   cmd.gsub!(/\$repeat/, 	config[:repeat].to_s)
   return cmd
 end
 
+# create ports hash using nmap output
 def get_ports_from_output(output)
   ports = {:tcp => [], :udp => []}
-  output.scan(/[\d]+\/tcp\W+open/).each do |line|
-    ports[:tcp] << line.match(/[\d]+/).to_s.to_i
+  output.scan(/[\d]+\/tcp\W+open.*/).each do |line|
+    elements = line.split
+    set = {:port => elements[0].to_i, :service => "", :banner => "" }
+    set[:service] = elements[2] if elements[2]
+    set[:banner]  = elements[3..-1].join(" ") if elements[3]
+    ports[:tcp] << set
   end
-  output.scan(/[\d]+\/udp\W+open/).each do |line|
-    ports[:udp] << line.match(/[\d]+/).to_s.to_i
+  output.scan(/[\d]+\/udp\W+open.*/).each do |line|
+    elements = line.split
+    set = {:port => elements[0].to_i, :service => "", :banner => "" }
+    set[:service] = elements[2] if elements[2]
+    set[:banner]  = elements[3..-1].join(" ") if elements[3]
+    ports[:udp] << set
   end
-  puts ports.to_yaml
+  #puts ports.to_yaml
   return ports
 end
 
@@ -123,7 +134,7 @@ config = {
 logger = Logger.new(config[:target])
 
 # display target
-puts bold, "Target: #{config[:target]}", reset
+#puts bold, "Target: #{config[:target]}", reset
 
 logger.log("Target: #{config[:target]}")
 logger.result("Tests on #{config[:target]} started #{Time.now}\n")
@@ -139,9 +150,9 @@ tests.each do |test|
   # replace vars and show command
   print yellow, "#{test[:name]}"
   cmd = replace_vars(test[:command], config)
-  puts green, "  #{cmd}", reset
+  puts green, "# #{cmd}", reset
 
-  logger.log("", false)
+  logger.log("\n\n\n", false)
   logger.log(cmd)
 
   # run command and capture output
@@ -172,7 +183,7 @@ tests.each do |test|
       # prepare output
       puts; puts
       print bold, check[:name], reset
-      forward = 80 - check[:name].length
+      forward = 70 - check[:name].length
       forward = 1 if forward < 1
       spaces = ""
       forward.times { spaces += " " }
@@ -216,12 +227,26 @@ end
 
 logger.result("\nTests completed #{Time.now}")
 
+# show ports and services in result file
+ports_count = config[:open_ports][:tcp].count + config[:open_ports][:udp].count
+port_status = "\n#{ports_count} ports and services detected:"
+
+port_list = []
+config[:open_ports][:tcp].each { |port| port_list << port[:port] unless port_list.include?(port[:port]) }
+config[:open_ports][:udp].each { |port| port_list << port[:port] unless port_list.include?(port[:port]) }
+puts "port list for vulnerabilty scanner: #{port_list.join(',')}"
+
+
+logger.result(port_status)
+logger.result(config[:open_ports].to_yaml)
+
 
 # summary
 puts
 print green, "  #{count_checks_succ} passed /"
 print yellow, " #{count_checks_fail} failed", reset
 puts
+puts port_status
 hr
 puts
 
