@@ -1,12 +1,23 @@
 --- 
-- :name: ping
+- :name: ICMP Echo
   :command: ping -c$repeat $target
   :checks:
   - :name: ICMP echo requests should be filtered
     :test: .*100% packet loss.*
     :match_passes: true
 
-- :name: tcp timestamps
+- :name: nmap syn scan agressive, verbose, default ports
+  :command: sudo nmap -sS -A -v $target
+  :port_source: true
+  :checks:
+  - :name: IP IDs should all be zeros
+    :test: IP ID Sequence Generation.*All zeros
+    :match_passes: true
+  - :name: TCP Sequences should not be predictable
+    :test: TCP Sequence Prediction.*Difficulty=.*Good luck.*
+    :match_passes: true
+
+- :name: TCP Timestamps
   :command: sudo hping3 -S -c $repeat -p $port_open $target --tcp-timestamp
   :checks:
   - :name: TCP Timestamps should be disabled

@@ -50,6 +50,17 @@ def replace_vars(cmd, config)
   return cmd
 end
 
+def get_ports_from_output(output)
+  ports = {:tcp => [], :udp => []}
+  output.scan(/[\d]+\/tcp\W+open/).each do |line|
+    ports[:tcp] << line.match(/[\d]+/).to_s.to_i
+  end
+  output.scan(/[\d]+\/udp\W+open/).each do |line|
+    ports[:udp] << line.match(/[\d]+/).to_s.to_i
+  end
+  puts ports.to_yaml
+  return ports
+end
 
 
 
@@ -108,9 +119,6 @@ config = {
 }
 
 
-# test config
-config[:open_ports][:tcp] << 80 
-
 # init logger
 logger = Logger.new(config[:target])
 
@@ -148,6 +156,16 @@ tests.each do |test|
   #puts output
   logger.log(output, false)
 
+  if(test[:port_source])
+    ports = get_ports_from_output(output)
+    if ports[:tcp]
+      ports[:tcp].each { |port| config[:open_ports][:tcp] << port unless config[:open_ports][:tcp].include?(port) }
+    end
+    if ports[:udp]
+      ports[:udp].each { |port| config[:open_ports][:udp] << port unless config[:open_ports][:udp].include?(port) }
+    end
+  end
+
   # run checks on output
   if test[:checks]
     test[:checks].each do |check|
@@ -184,8 +202,8 @@ tests.each do |test|
       logger.result("]")
       
       if matches
-        print matches
-        logger.result(matches);
+        print "  #{matches}"
+        logger.result("  #{matches}");
       end 
 
     end
@@ -201,7 +219,7 @@ logger.result("\nTests completed #{Time.now}")
 
 # summary
 puts
-print green, "  #{count_checks_succ} passed / "
+print green, "  #{count_checks_succ} passed /"
 print yellow, " #{count_checks_fail} failed", reset
 puts
 hr
