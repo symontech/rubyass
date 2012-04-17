@@ -4,6 +4,55 @@ require 'yaml'
 require 'term/ansicolor'
 include Term::ANSIColor
 
+def tested(what, success)
+  print bold, what, reset
+  forward = 70 - what.length
+  forward = 1 if forward < 1
+  spaces = ""
+  forward.times { spaces += " " }
+  print spaces
+  print "["
+
+  clean = "#{what}#{spaces}["
+
+  if success
+    print green, "OK"
+    clean += "OK"
+  else
+    print yellow, "FAILED"
+    clean += "FAILED"
+  end
+  print reset, "]\n"
+  clean += "]"
+  return clean
+end
+
+def hr
+  print blue
+  80.times { print '-' }
+  puts reset
+end
+
+# header
+hr
+puts blue, "  ruby basic network assessment tool", reset
+hr
+
+
+# check for installed tools
+all_tools_installed = true
+
+["sudo -V", "nmap -version", "hping3 -v"].each do |tool|
+  success = system("#{tool} > /dev/null 2>&1")
+  tested("checking for #{tool.split.first}", success)
+  all_tools_installed = false unless success
+end
+
+unless all_tools_installed
+  puts yellow, bold, "Please install missing tools and make sure the binaries are in the path.", reset
+  Kernel.exit(1)
+end
+
 class Logger
   def initialize(target)
     @file_prefix = "logs/#{target}"
@@ -29,14 +78,9 @@ class Logger
 end
 
 
-def hr
-  print blue
-  80.times { print '-' }
-  puts reset
-end
-
 def error(message)
   puts red, bold, "ERROR: #{message}", reset
+  Kernel.exit(1)
 end
 
 def success(message)
@@ -69,11 +113,8 @@ def get_ports_from_output(output)
     set[:banner]  = elements[3..-1].join(" ") if elements[3]
     ports[:udp] << set
   end
-  #puts ports.to_yaml
   return ports
 end
-
-
 
 
 options = {
@@ -112,15 +153,16 @@ end
 # target is required
 unless ARGV.last
   error "please specify a target"
-  exit 1 
 end
 
 # load the tests from yaml
+hr
 tests = YAML::load_file('tests.yml') rescue nil
 if tests
-  success "#{tests.length} tests loaded"
+  tested("loaded #{tests.length} tests", true)
 else
-  error "no tests could be loaded" and exit 1
+  tested("load tests", false)
+  error "no tests could be loaded"
 end
 
 config = {
@@ -132,10 +174,6 @@ config = {
 
 # init logger
 logger = Logger.new(config[:target])
-
-# display target
-#puts bold, "Target: #{config[:target]}", reset
-
 logger.log("Target: #{config[:target]}")
 logger.result("Tests on #{config[:target]} started #{Time.now}\n")
 
@@ -180,37 +218,23 @@ tests.each do |test|
   # run checks on output
   if test[:checks]
     test[:checks].each do |check|
+
       # prepare output
       puts; puts
-      print bold, check[:name], reset
-      forward = 70 - check[:name].length
-      forward = 1 if forward < 1
-      spaces = ""
-      forward.times { spaces += " " }
-      print spaces
-      print "["
-
-      logger.result(check[:name], false)
-      logger.result(spaces, false)
-      logger.result("[", false)
-
-
 
       # eval
       matches = output.match(Regexp.new(check[:test]))
       passed = true if matches
       passed = !passed unless check[:match_passes]
+
+      clean = tested(check[:name], passed)
+      logger.result(clean)
+
       if passed
-        print green, "OK"
-        logger.result("OK", false)
 	count_checks_succ += 1
       else
-        print yellow, "FAILED"
-        logger.result("FAILED", false)
         count_checks_fail += 1
       end
-      print reset, "]\n"
-      logger.result("]")
       
       if matches
         print "  #{matches}"
@@ -225,6 +249,7 @@ tests.each do |test|
 end
 
 
+# finalize
 logger.result("\nTests completed #{Time.now}")
 
 # show ports and services in result file
@@ -241,7 +266,7 @@ logger.result(port_status)
 logger.result(config[:open_ports].to_yaml)
 
 
-# summary
+# print summary
 puts
 print green, "  #{count_checks_succ} passed /"
 print yellow, " #{count_checks_fail} failed", reset
@@ -250,4 +275,4 @@ puts port_status
 hr
 puts
 
-exit 0
+
