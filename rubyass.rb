@@ -8,23 +8,22 @@ def tested(what, success)
   print bold, what, reset
   forward = 70 - what.length
   forward = 1 if forward < 1
-  spaces = ""
-  forward.times { spaces += " " }
+  spaces = ''
+  forward.times { spaces += ' ' }
   print spaces
-  print "["
+  print '['
 
   clean = "#{what}#{spaces}["
 
   if success
-    print green, "OK"
-    clean += "OK"
+    print green, 'OK'
+    clean += 'OK'
   else
-    print yellow, "FAILED"
-    clean += "FAILED"
+    print yellow, 'FAILED'
+    clean += 'FAILED'
   end
   print reset, "]\n"
-  clean += "]"
-  return clean
+  clean + ']'
 end
 
 def hr
@@ -35,21 +34,20 @@ end
 
 # header
 hr
-puts blue, "  ruby basic network assessment tool", reset
+puts blue, '  ruby basic network assessment tool', reset
 hr
 
-
 # check for installed tools
-all_tools_installed = true
+missing_any_tools = false
 
-["sudo -V", "nmap -version", "hping3 -v"].each do |tool|
+['sudo -V', 'nmap -version', 'hping3 -v'].each do |tool|
   success = system("#{tool} > /dev/null 2>&1")
   tested("checking for #{tool.split.first}", success)
-  all_tools_installed = false unless success
+  missing_any_tools = true unless success
 end
 
-unless all_tools_installed
-  puts yellow, bold, "Please install missing tools and make sure the binaries are in the path.", reset
+if missing_any_tools
+  puts yellow, bold, 'Please install missing tools and make sure the binaries are in the path.', reset
   Kernel.exit(1)
 end
 
@@ -58,7 +56,7 @@ class Logger
     @file_prefix = "logs/#{target}"
   end
 
-  def log(message, date=true)
+  def log(message, date = true)
     File.open("#{@file_prefix}.log", 'a') do |f|
       if date
         f.puts("#{Time.now}\t#{message}")
@@ -68,15 +66,13 @@ class Logger
     end
   end
 
-  def result(message, newline=true)
+  def result(message, newline = true)
     File.open("#{@file_prefix}.result", 'a') do |f|
       f.print(message)
       f.print("\n") if newline
     end
   end
-  
 end
-
 
 def error(message)
   puts red, bold, "ERROR: #{message}", reset
@@ -88,105 +84,90 @@ def success(message)
 end
 
 def replace_vars(cmd, config)
-  cmd.gsub!(/\$target/, 	config[:target])
+  cmd.gsub!(/\$target/, config[:target])
   if config[:open_ports][:tcp].first
-    cmd.gsub!(/\$port_open/, 	config[:open_ports][:tcp].first[:port].to_s)
+    cmd.gsub!(/\$port_open/, config[:open_ports][:tcp].first[:port].to_s)
   end
-  cmd.gsub!(/\$repeat/, 	config[:repeat].to_s)
-  return cmd
+  cmd.gsub(/\$repeat/, config[:repeat].to_s)
 end
 
 # create ports hash using nmap output
 def get_ports_from_output(output)
-  ports = {:tcp => [], :udp => []}
-  output.scan(/[\d]+\/tcp\W+open.*/).each do |line|
+  ports = { tcp: [], udp: [] }
+  output.scan(%r{[\d]+\/tcp\W+open.*}).each do |line|
     elements = line.split
-    set = {:port => elements[0].to_i, :service => "", :banner => "" }
+    set = { port: elements[0].to_i, service: '', banner: '' }
     set[:service] = elements[2] if elements[2]
-    set[:banner]  = elements[3..-1].join(" ") if elements[3]
+    set[:banner]  = elements[3..-1].join(' ') if elements[3]
     ports[:tcp] << set
   end
-  output.scan(/[\d]+\/udp\W+open.*/).each do |line|
+  output.scan(%r{[\d]+\/udp\W+open.*}).each do |line|
     elements = line.split
-    set = {:port => elements[0].to_i, :service => "", :banner => "" }
+    set = { port: elements[0].to_i, service: '', banner: '' }
     set[:service] = elements[2] if elements[2]
-    set[:banner]  = elements[3..-1].join(" ") if elements[3]
+    set[:banner]  = elements[3..-1].join(' ') if elements[3]
     ports[:udp] << set
   end
-  return ports
+  ports
 end
 
+def usage(script_name)
+  "Usage: ./#{script_name} [OPTIONS] target"
+end
 
 options = {
-  :first       => "default value",
-  :another     => 23,
-  :bool        => false,
-  :list        => ["x", "y", "z"],
-  :dest        => File.expand_path(File.dirname($0))
+  first:   'default value',
+  another: 23,
+  bool:    false,
+  list:    %w[x y z],
+  dest:    File.expand_path(File.dirname($PROGRAM_NAME))
 }
 
+script_name = File.basename($PROGRAM_NAME)
 ARGV.options do |o|
-  script_name = File.basename($0)
-  
   o.set_summary_indent('  ')
-  o.banner =    "Usage: #{script_name} [OPTIONS] target"
-  o.define_head "ruby basic security assessment"
-  o.separator   ""
-  #o.separator   "Mandatory arguments to long options are mandatory for " +
-  #              "short options too."  
-#  o.on("-f", "--first=[val]", String,
-#       "A long and short (optional) string argument",
-#       "Default: #{options[:first]}")   { |options[:first]| }
-#  o.on("-a", "--another=val", Integer,
-#       "Requires an int argument")      { |options[:another]| }
-#  o.on("-b", "--boolean",
-#       "A boolean argument")            { |options[:bool]| }
-#  o.on("--list=[x,y,z]", Array, 
-#       "Example 'list' of arguments")   { |options[:list]| }
-  
-  #o.separator ""
-
-  o.on_tail("-h", "--help", "Show this help message.") { puts o; puts; exit }
+  o.banner =    usage(script_name)
+  o.define_head 'ruby basic security assessment'
+  o.separator   ''
+  o.on_tail('-h', '--help', 'Show this help message.') do
+    puts o
+    puts
+    exit
+  end
   o.parse!
 end
 
 # target is required
-unless ARGV.last
-  error "please specify a target"
-end
+error "please specify a target. \n#{usage(script_name)}" unless ARGV.last
 
 # load the tests from yaml
 hr
-tests = YAML::load_file('tests.yml') rescue nil
-if tests
+if (tests = YAML.load_file('tests.yml'))
   tested("loaded #{tests.length} tests", true)
 else
-  tested("load tests", false)
-  error "no tests could be loaded"
+  tested('load tests', false)
+  error 'no tests could be loaded'
 end
 
 config = {
-	:target => ARGV.last,
-	:repeat => 3,
-	:open_ports => {:tcp => [], :udp => [] },
+  target: ARGV.last,
+  repeat: 3,
+  open_ports: { tcp: [], udp: [] }
 }
-
 
 # init logger
 logger = Logger.new(config[:target])
 logger.log("Target: #{config[:target]}")
 logger.result("Tests on #{config[:target]} started #{Time.now}\n")
 
-
 # stats
 count_checks_succ = 0
 count_checks_fail = 0
 
-
 # start the tests
 tests.each do |test|
   # replace vars and show command
-  print yellow, "#{test[:name]}"
+  print yellow, test[:name].to_s
   cmd = replace_vars(test[:command], config)
   puts green, "# #{cmd}", reset
 
@@ -194,18 +175,16 @@ tests.each do |test|
   logger.log(cmd)
 
   # run command and capture output
-  output = "" 
-  IO.popen (cmd) do |f|
-    while(s = f.gets)
+  output = ''
+  IO.popen(cmd) do |f|
+    while (s = f.gets)
       output += s
     end
   end
 
-
-  #puts output
   logger.log(output, false)
 
-  if(test[:port_source])
+  if test[:port_source]
     ports = get_ports_from_output(output)
     if ports[:tcp]
       ports[:tcp].each { |port| config[:open_ports][:tcp] << port unless config[:open_ports][:tcp].include?(port) }
@@ -218,9 +197,9 @@ tests.each do |test|
   # run checks on output
   if test[:checks]
     test[:checks].each do |check|
-
       # prepare output
-      puts; puts
+      puts
+      puts
 
       # eval
       matches = output.match(Regexp.new(check[:test]))
@@ -230,24 +209,21 @@ tests.each do |test|
       clean = tested(check[:name], passed)
       logger.result(clean)
 
-      if passed
-	count_checks_succ += 1
-      else
-        count_checks_fail += 1
+      if passed then count_checks_succ += 1
+      else count_checks_fail += 1
       end
-      
+
       if matches
         print "  #{matches}"
-        logger.result("  #{matches}");
-      end 
-
+        logger.result("  #{matches}")
+      end
     end
   end
 
   # seperator
-  puts; hr;
+  puts
+  hr
 end
-
 
 # finalize
 logger.result("\nTests completed #{Time.now}")
@@ -261,10 +237,8 @@ config[:open_ports][:tcp].each { |port| port_list << port[:port] unless port_lis
 config[:open_ports][:udp].each { |port| port_list << port[:port] unless port_list.include?(port[:port]) }
 puts "port list for vulnerabilty scanner: #{port_list.join(',')}"
 
-
 logger.result(port_status)
 logger.result(config[:open_ports].to_yaml)
-
 
 # print summary
 puts
@@ -274,5 +248,3 @@ puts
 puts port_status
 hr
 puts
-
-

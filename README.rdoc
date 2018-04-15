@@ -1,0 +1,6 @@
+= Ruby Basic Network Assessment
+
+This is a tool that runs several network security tests agains a host.
+The following tools are required
+  - nmap
+  - hping3

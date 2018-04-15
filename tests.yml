@@ -1,4 +1,4 @@
---- 
+---
 - :name: ICMP Echo
   :command: ping -c$repeat $target
   :checks:
@@ -14,7 +14,7 @@
     :match_passes: false
 
 - :name: nmap syn scan agressive and verbose on default ports
-  :command: sudo nmap -sS -A -v -P0 $target
+  :command: sudo nmap -sS -A -v -Pn $target
   :port_source: true
   :checks:
   - :name: IP IDs should not be incremental
@@ -35,6 +35,5 @@
     :match_passes: false
 
 - :name: nmap udp scan agressive and verbose on default ports
-  :command: sudo nmap -sU -A -v -P0 $target
+  :command: sudo nmap -sU -A -v -Pn $target
   :port_source: true
-
